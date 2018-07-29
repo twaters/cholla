@@ -29,9 +29,12 @@ typedef double Real;
 //#define GN 6.67259e-8 // gravitational constant, cgs
 #define GN 4.49451e-18 // gravitational constant, kpc^3 / M_sun / kyr^2
 
-#define TIME_UNIT 3.15569e10 // 1 kyr in s
-#define LENGTH_UNIT 3.08567758e21 // 1 kpc in cm
-#define MASS_UNIT 1.98855e33 // 1 solar mass in grams
+//#define TIME_UNIT 3.15569e10 // 1 kyr in s
+//#define LENGTH_UNIT 3.08567758e21 // 1 kpc in cm
+//#define MASS_UNIT 1.98855e33 // 1 solar mass in grams
+#define TIME_UNIT 60300.114856343294
+#define LENGTH_UNIT 310994529228.64191
+#define MASS_UNIT 2.6020994527238984e+18
 #define DENSITY_UNIT (MASS_UNIT/(LENGTH_UNIT*LENGTH_UNIT*LENGTH_UNIT)) 
 #define VELOCITY_UNIT (LENGTH_UNIT/TIME_UNIT)
 #define ENERGY_UNIT (DENSITY_UNIT*VELOCITY_UNIT*VELOCITY_UNIT)
@@ -143,6 +146,10 @@ struct parameters
   Real ddelta_dt;
   int flag_delta;
 #endif /*ROTATED_PROJECTION*/
+  // added by TRW
+  int ncycle_out; // controls freq of output to screen
+  Real my_reals[99]; // an array to hold an additional 99 parameters
+
 };
 
 

@@ -74,7 +74,6 @@ int main(int argc, char *argv[])
   // Set initial conditions and calculate first dt
   chprintf("Setting initial conditions...\n");
   G.Set_Initial_Conditions(P);
-  chprintf("Initial conditions set.\n");
   // set main variables for Read_Grid inital conditions
   if (strcmp(P.init, "Read_Grid") == 0) {
     dti = C_cfl / G.H.dt;
@@ -191,6 +190,8 @@ int main(int argc, char *argv[])
     #ifdef MPI_CHOLLA
     G.H.t_wall = ReduceRealMax(G.H.t_wall);
     #endif 
+    //if (P.ncycle_out < 0 || G.H.n_step % P.ncycle_out == 0) 
+    if (G.H.n_step %1000 == 0) 
     chprintf("n_step: %d   sim time: %10.7f   sim timestep: %7.4e  timestep time = %9.3f ms   total time = %9.4f s\n", 
       G.H.n_step, G.H.t, G.H.dt, (stop_step-start_step)*1000, G.H.t_wall);
 

@@ -28,6 +28,8 @@ void Grid3D::Set_Initial_Conditions(parameters P) {
     Constant(P.rho, P.vx, P.vy, P.vz, P.P);    
   } else if (strcmp(P.init, "Sound_Wave")==0) {
     Sound_Wave(P.rho, P.vx, P.vy, P.vz, P.P, P.A);
+  } else if (strcmp(P.init, "TI")==0) {
+    TI(P.rho, P.vx, P.vy, P.vz, P.P, P.A, P.my_reals[2]);
   } else if (strcmp(P.init, "Square_Wave")==0) {
     Square_Wave(P.rho, P.vx, P.vy, P.vz, P.P, P.A);    
   } else if (strcmp(P.init, "Riemann")==0) {
@@ -176,6 +178,74 @@ void Grid3D::Constant(Real rho, Real vx, Real vy, Real vz, Real P)
 
 }
 
+
+/*! \fn void TI(Real rho, Real vx, Real vy, Real vz, Real P, Real A)
+ *  \brief Thermally unstable isobaric perturbation. */
+void Grid3D::TI(Real rho, Real vx, Real vy, Real vz, Real P, Real A, Real n_TI)
+{
+  int i, j, k, id;
+  int istart, jstart, kstart, iend, jend, kend;
+  Real x_pos, y_pos, z_pos;
+  Real xc,xf,yf,zf;
+
+  istart = H.n_ghost;
+  iend   = H.nx-H.n_ghost;
+  if (H.ny > 1) {
+    jstart = H.n_ghost;
+    jend   = H.ny-H.n_ghost;
+  }
+  else {
+    jstart = 0;
+    jend   = H.ny;
+  }
+  if (H.nz > 1) {
+    kstart = H.n_ghost;
+    kend   = H.nz-H.n_ghost;
+  }
+  else {
+    kstart = 0;
+    kend   = H.nz;
+  }
+
+  // determine the center of the domain
+  Get_Position(iend, jend, kend, &xf, &yf, &zf);
+  xc = 0.5*xf;
+
+  // define variables used
+  Real coskx,sinkx;
+  Real vel, pres;
+  Real k_par = 2.*PI/xf;
+  Real n_over_k = n_TI/k_par;
+  Real cs0 = sqrt(gama*P/rho);
+
+  // set initial values of conserved variables
+  for(k=kstart; k<kend; k++) {
+    for(j=jstart; j<jend; j++) {
+      for(i=istart; i<iend; i++) {
+
+        //get cell index
+        id = i + j*H.nx + k*H.nx*H.ny;
+
+        // get cell-centered position
+        Get_Position(i, j, k, &x_pos, &y_pos, &z_pos);
+       
+        // perturbations 
+        coskx = cos(k_par*(x_pos-xc));
+        sinkx = sin(k_par*(x_pos-xc));
+
+        // initialize a 1D condensation mode
+        vel = vx - A*cs0*n_over_k*sinkx;
+        pres = P - A*n_over_k*n_over_k*coskx;
+        C.density[id]    = rho + A*coskx;
+        C.momentum_x[id] = rho*vel;
+        C.momentum_y[id] = rho*vy;
+        C.momentum_z[id] = rho*vz;
+        C.Energy[id]     = pres/(gama-1.0) + 0.5*C.momentum_x[id]*C.momentum_x[id]/C.density[id];
+      }
+    }
+  }
+
+}
 
 /*! \fn void Sound_Wave(Real rho, Real vx, Real vy, Real vz, Real P, Real A)
  *  \brief Sine wave perturbation. */

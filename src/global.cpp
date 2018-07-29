@@ -109,7 +109,9 @@ void parse_params (char *param_file, struct parameters * parms)
   parms->ddelta_dt = 0;
   parms->flag_delta = 0;
 #endif /*ROTATED_PROJECTION*/
-
+  
+  // added by TRW
+  int i_misc = 0;
 
   /* Read next line */
   while ((s = fgets (buff, sizeof buff, fp)) != NULL)
@@ -227,6 +229,11 @@ void parse_params (char *param_file, struct parameters * parms)
     else if (strcmp(name, "flag_delta")==0)
       parms->flag_delta  = atoi(value);
 #endif /*ROTATED_PROJECTION*/
+    // added by TRW
+    else if (strcmp(name, "ncycle_out")==0)
+      parms->ncycle_out  = atoi(value);
+    else if (strncmp(name, "myreal_", strlen("myreal_")))
+      parms->my_reals[i_misc++] = atof(value);  
     else
       printf ("WARNING: %s/%s: Unknown parameter/value pair!\n",
         name, value);
@@ -234,4 +241,8 @@ void parse_params (char *param_file, struct parameters * parms)
 
   /* Close file */
   fclose (fp);
+
+  // print out my_reals
+  for (int i=0; i<i_misc; i++)
+    printf("my_reals[%1d] = %2f\n",i,parms->my_reals[i]);
 }

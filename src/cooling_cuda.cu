@@ -16,6 +16,7 @@ extern texture<float, 2, cudaReadModeElementType> heatTexObj;
 /*! \fn void cooling_kernel(Real *dev_conserved, int nx, int ny, int nz, int n_ghost, int n_fields, Real dt, Real gamma)
  *  \brief When passed an array of conserved variables and a timestep, adjust the value
            of the total energy for each cell according to the specified cooling function. */
+//__global__ void cooling_kernel(Real *dev_conserved, int nx, int ny, int nz, int n_ghost, int n_fields, Real dt, Real gamma, Real *dt_array, parameters P)
 __global__ void cooling_kernel(Real *dev_conserved, int nx, int ny, int nz, int n_ghost, int n_fields, Real dt, Real gamma, Real *dt_array)
 {
   __shared__ Real min_dt[TPB];
@@ -54,7 +55,8 @@ __global__ void cooling_kernel(Real *dev_conserved, int nx, int ny, int nz, int 
   #endif
   Real T_min = 1.0e4; // minimum temperature allowed
 
-  mu = 0.6;
+  //mu = 0.6;
+  mu = 1.0;
   //mu = 1.27;
 
   // get a global thread ID
@@ -107,24 +109,33 @@ __global__ void cooling_kernel(Real *dev_conserved, int nx, int ny, int nz, int 
     //if (T > T_max) printf("%3d %3d %3d High T cell. n: %e  T: %e\n", xid, yid, zid, n, T);
     // call the cooling function
     //cool = CIE_cool(n, T); 
-    cool = Cloudy_cool(n, T); 
+    //cool = Cloudy_cool(n, T); 
+    //parameters P;
+    //cool = Blondin_cool(n, T, P.my_reals);
+    cool = Blondin_cool(n, T);
     
     // calculate change in temperature given dt
-    del_T = cool*dt*TIME_UNIT*(gamma-1.0)/(n*KB);
+    //del_T = cool*dt*TIME_UNIT*(gamma-1.0)/(n*KB);
+    del_T = cool*dt*TIME_UNIT*(gamma-1.0)*mu*MP/KB;
 
     // limit change in temperature to 1%
     while (del_T/T > 0.01) {
       // what dt gives del_T = 0.01*T?
-      dt_sub = 0.01*T*n*KB/(cool*TIME_UNIT*(gamma-1.0));
+      //dt_sub = 0.01*T*n*KB/(cool*TIME_UNIT*(gamma-1.0));
+      dt_sub = 0.01*T*KB/(cool*TIME_UNIT*(gamma-1.0)*mu*MP);
       // apply that dt
-      T -= cool*dt_sub*TIME_UNIT*(gamma-1.0)/(n*KB);
+      //T -= cool*dt_sub*TIME_UNIT*(gamma-1.0)/(n*KB);
+      T -= cool*dt_sub*TIME_UNIT*(gamma-1.0)*mu*MP/KB;
       // how much time is left from the original timestep?
       dt -= dt_sub;
       // calculate cooling again
       //cool = CIE_cool(n, T);
-      cool = Cloudy_cool(n, T);
+      //cool = Cloudy_cool(n, T);
+      //cool = Blondin_cool(n, T, P.my_reals);
+      cool = Blondin_cool(n, T);
       // calculate new change in temperature
-      del_T = cool*dt*TIME_UNIT*(gamma-1.0)/(n*KB);
+      //del_T = cool*dt*TIME_UNIT*(gamma-1.0)/(n*KB);
+      del_T = cool*dt*TIME_UNIT*(gamma-1.0)*mu*MP/KB;
     }
 
     // calculate final temperature
@@ -144,12 +155,16 @@ __global__ void cooling_kernel(Real *dev_conserved, int nx, int ny, int nz, int 
     #endif
     // calculate cooling rate for new T
     //cool = CIE_cool(n, T);
-    cool = Cloudy_cool(n, T);
-    printf("%d %d %d %e %e %e\n", xid, yid, zid, n, T, cool);
+    //cool = Cloudy_cool(n, T);
+    //cool = Blondin_cool(n, T, P.my_reals);
+    cool = Blondin_cool(n, T);
+    //printf("%d %d %d %e %e %e\n", xid, yid, zid, n, T, cool);
     // only use good cells in timestep calculation (in case some have crashed)
-    if (n > 0 && T > 0 && cool > 0.0) {
+    if (n > 0 && T > 0 && cool > 0.0) { // note by TRW: this prevents net heating!
+    //if (n > 0 && T > 0) {
       // limit the timestep such that delta_T is 10% 
-      min_dt[tid] = 0.1*T*n*KB/(cool*TIME_UNIT*(gamma-1.0));
+      //min_dt[tid] = 0.1*T*n*KB/(cool*TIME_UNIT*(gamma-1.0));
+      min_dt[tid] = 0.1*T*KB/(cool*TIME_UNIT*(gamma-1.0)*mu*MP);
     }
 
     // and send back from kernel
@@ -336,7 +351,7 @@ __device__ Real CIE_cool(Real n, Real T)
 }
 
 
-/* \fn __device__ Real Cloudy_cool(Real n, Real T)
+/* \fn __device__ Real Cloudy_cool(Real n, Real T, cudaTextureObject_t coolTexObj, cudaTextureObject_t heatTexObj)
  * \brief Uses texture mapping to interpolate Cloudy cooling/heating 
           tables at z = 0 with solar metallicity and an HM05 UV background. */
 __device__ Real Cloudy_cool(Real n, Real T)
@@ -365,6 +380,38 @@ __device__ Real Cloudy_cool(Real n, Real T)
 
   return cool;
 #endif
+}
+
+
+//__device__ Real Blondin_cool(Real n, Real T, Real my_reals[])
+__device__ Real Blondin_cool(Real n, Real T)
+{
+  // First specify location on radiative equilibrium curve
+  // these correspond to the equilibrium values from PW15
+ // parameters P;
+
+  Real mu = 1.;
+  Real xi_eq = 190.; //P.my_reals[0];        // photoionization parameter
+  Real n_eq = 5.172111021461324e7; //P.my_reals[1]; // number density
+
+  Real net_cool; // net cooling rate
+  Real xi = xi_eq*(n_eq/n);
+  Real Gc,Gx,Ll,Lb;
+  Real T_L = 1.3e5;   // characteristic line emission temp
+  Real T_x = 1.16e8;  // 10 keV X-ray spectrum
+  Real Gc_fac = 8.890467707253008e-36;
+
+  /* Compton */
+  Gc  = Gc_fac * xi * (T_x - 4.*T);
+  /* photo heating */
+  Gx = 1.5e-21 * pow(xi,0.25) / sqrt(T) * (1.- T/T_x);
+  /* bremss, this takes into account the prefactors for case C */
+  Lb = 3.3e-27 * sqrt(T);
+  /* line cooling */
+  Ll = 1.7e-18 * exp(-T_L/T) / xi / sqrt(T) + 1e-24;
+
+  net_cool = Lb + Ll - Gc - Gx;
+  return n*net_cool/(mu*MP);
 }
 
 

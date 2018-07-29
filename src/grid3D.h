@@ -379,6 +379,10 @@ class Grid3D
      *  \brief Initialize the grid with two interacting blast waves. See Stone 2008, Section 8.1.*/
     void Blast_1D();
 
+    /*! \fn void TI(Real rho, Real vx, Real vy, Real vz, Real P, Real A)
+     *  \brief Thermal instability. */
+    void TI(Real rho, Real vx, Real vy, Real vz, Real P, Real A, Real n_TI);
+
     /*! \fn void KH()
     *  \brief Initialize the grid with a Kelvin-Helmholtz instability with a discontinuous interface. */
     void KH();

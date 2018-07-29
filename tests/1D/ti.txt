@@ -1,0 +1,56 @@
+#
+# Parameter File for thermal instability test
+#
+
+################################################
+# number of grid cells in the x dimension
+nx=256
+# number of grid cells in the y dimension
+ny=1
+# number of grid cells in the z dimension
+nz=1
+# final output time
+tout=250.
+# time interval for output
+outstep=0.25
+# name of initial conditions
+init=TI
+# size of domain
+xmin=0.0
+ymin=0.0
+zmin=0.0
+xlen=1.0
+ylen=1.0
+zlen=1.0
+# type of boundary conditions
+xl_bcnd=1
+xu_bcnd=1
+# path to output directory
+outdir=./
+
+#################################################
+# Built-in parameters specific to this problem
+# initial density 
+rho=1.0
+# velocity in the x direction 
+vx=0
+# velocity in the y direction
+vy=0
+# velocity in the z direction
+vz=0
+# initial pressure 
+P=0.6
+# amplitude of perturbing oscillations
+A=1e-4
+# value of gamma
+gamma=1.666666666666667
+
+# Other custom parameters - note:
+# parser expects these to begin with "myreals_"
+# also order here must match access within initial_conditions() and 
+# the Blondin_cooling() functions - these will go into an array called
+# my_reals[] and accessed as my_reals[0], my_reals[1], ...
+myreals_xi0 = 190.0      # equilibrium photoionization parameter
+myreals_n0 = 5.17211102e7       # equilibrium number density
+myreals_nR = 0.206337158642     # growth rate (solution to cubic DR)
+
